@@ -10,6 +10,7 @@ extension AugmentStatsStore {
         var parts = leadSummary(for: augmentID, guidePatch: guidePatch)?.parts
             ?? (current(playaram.tiersPatch) ? globalTierSummary(for: augmentID) : [])
         if current(playaram.changesPatch), let trend = trendText(for: augmentID) { parts.insert(trend, at: min(1, parts.count)) }
+        if let boost = GamePlanStore.shared.boost(for: augmentID), boost.value != 0 { parts.append(String(format: "AI%+d", boost.value)) }
         return parts.isEmpty ? nil : parts
     }
 
@@ -57,10 +58,21 @@ extension AugmentStatsStore {
 struct AugmentGuideList: View {
     @ObservedObject private var stats = AugmentStatsStore.shared
     @ObservedObject private var picks = AugmentPickStore.shared
+    @ObservedObject private var planner = GamePlanStore.shared
     let augments: [AugmentRating]
 
     var body: some View {
         let mayhem = stats.guide?.mode == .mayhem
+        if mayhem, planner.engine != .off || !planner.swapLines.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                Text(AugmentSourceStrings.text("对局计划")).font(.system(size: 12, weight: .semibold))
+                if !planner.status.isEmpty { Text(planner.status).font(.system(size: 10)).foregroundStyle(.secondary) }
+                ForEach(planner.plan?.notes ?? [], id: \.self) { Text("• " + $0).font(.system(size: 11)) }
+                ForEach(planner.swapLines, id: \.self) { Text("⇄ " + $0).font(.system(size: 11)) }
+            }
+            .padding(8).frame(maxWidth: .infinity, alignment: .leading)
+            .background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 9))
+        }
         if mayhem, !picks.taken.isEmpty {
             HStack(spacing: 6) {
                 Text(AugmentSourceStrings.text("已选海克斯")).font(.system(size: 11, weight: .semibold))

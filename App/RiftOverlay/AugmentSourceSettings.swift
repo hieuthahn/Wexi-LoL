@@ -14,6 +14,7 @@ struct AugmentSourceSettings: View {
                 }
             }
             .frame(maxWidth: 320)
+            GamePlanSettings()
             ForEach(AugmentStatsProvider.allCases) { provider in
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: Binding(get: { stats.isEnabled(provider) }, set: { stats.setEnabled(provider, $0) })) {
@@ -50,6 +51,23 @@ struct AugmentSourceSettings: View {
     }
 }
 
+private struct GamePlanSettings: View {
+    @ObservedObject private var planner = GamePlanStore.shared
+
+    var body: some View {
+        Picker(AugmentSourceStrings.text("AI 对局计划"), selection: $planner.engine) {
+            Text(AugmentSourceStrings.text("关闭")).tag(GamePlanEngine.off)
+            Text("Claude Haiku").tag(GamePlanEngine.claude)
+            Text("Codex Luna").tag(GamePlanEngine.codex)
+        }
+        .frame(maxWidth: 320)
+        if planner.engine != .off {
+            Text(AugmentSourceStrings.text("使用本机 CLI；只发送英雄、海克斯和装备名称"))
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
 /// Stats lines under an augment in the guide list: one line per provider in Mayhem, upstream text elsewhere.
 struct AugmentSourceLines: View {
     @ObservedObject private var stats = AugmentStatsStore.shared
@@ -63,6 +81,9 @@ struct AugmentSourceLines: View {
             line("★ " + AugmentSourceStrings.text("攻略推荐") + " · " + AugmentStatsProvider.caoviethoang.displayName)
         }
         let patch = guide?.patch ?? "—"
+        if guide?.mode == .mayhem, let boost = GamePlanStore.shared.boost(for: augment.id), boost.value != 0 {
+            line(String(format: "AI%+d · ", boost.value) + boost.reason)
+        }
         let headline = guide?.mode == .mayhem ? stats.headline(for: augment.id, guidePatch: patch) : nil
         if let combo = stats.comboText(for: augment.id) { line(combo) }
         if records.isEmpty && headline == nil {

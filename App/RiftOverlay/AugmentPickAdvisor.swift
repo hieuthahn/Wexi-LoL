@@ -33,7 +33,11 @@ extension AugmentStatsStore {
         guard offered.count >= 2, offered.contains(where: { $0.id == augmentID }) else { return nil }
         let pooled = offered.map { snapshot.consensus(for: $0.id, patch: guide.patch == "—" ? nil : guide.patch)?.delta }
         let lead = offered.map { snapshot.providers[primarySource]?[$0.id]?.winRate }
-        let scores = !pooled.contains(nil) ? pooled : !lead.contains(nil) ? lead : offered.map { _ in nil }
+        let planner = GamePlanStore.shared
+        let boosts = offered.map { Double(planner.boost(for: $0.id)?.value ?? 0) * GamePlanStore.boostWeight }
+        let stats = !pooled.contains(nil) ? pooled : !lead.contains(nil) ? lead : nil
+        let scores: [Double?] = stats.map { zip($0, boosts).map { $0! + $1 } }
+            ?? (planner.plan != nil ? boosts : offered.map { _ in nil })
         let candidates = zip(offered, scores).map { augment, score in
             AugmentChoiceAdvice.Candidate(id: augment.id, tier: augment.tier, score: score, synergy: synergy(for: augment.id))
         }

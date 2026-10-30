@@ -111,6 +111,7 @@ private struct HintBadge: View {
         }
         gameFrame = game.frame
         AugmentPickStore.shared.observe(cards: recognition.cardHints, guide: guide, level: recognition.detectedLevel, frame: game.frame)
+        GamePlanStore.shared.tick(guide: guide, recognition: recognition)
         let layout = layouts.adjustment(for: .hints, frame: game.frame)
         let aspect = game.frame.width / game.frame.height
         calibration.currentAspect = aspect

@@ -50,6 +50,7 @@ private struct ItemBuildOverlayView: View {
     let build: ItemBuild
     let ownedItemIDs: [Int]
     let opacity: Double
+    var swapLines: [String] = []
 
     var body: some View {
         let nextID = ItemBuildRecommendation.nextItem(in: build, ownedItemIDs: ownedItemIDs)?.id
@@ -66,6 +67,7 @@ private struct ItemBuildOverlayView: View {
                     BuildItemCell(item: item, owned: ownedItemIDs.contains(item.id), next: item.id == nextID)
                 }
             }
+            ForEach(swapLines, id: \.self) { Text("⇄ " + $0).font(.system(size: 10, weight: .medium)).lineLimit(1) }
             Text(L10n.text("OP.GG · 选用率 %.1f%% · %d 场", build.pickRate, build.games))
                 .font(.system(size: 9)).foregroundStyle(.white.opacity(0.55))
         }
@@ -133,18 +135,19 @@ private struct ItemBuildOverlayControlView: View {
         ))
         let nextSignature = build.items.map { String($0.id) }.joined(separator: ",")
             + ":\(recognition.ownedItemIDs.sorted())"
-            + ":\(scale):\(layout.opacity):\(LanguageSettings.shared.selection.rawValue):\(Int(model.opacity * 100))"
+            + ":\(GamePlanStore.shared.swapLines)" + ":\(scale):\(layout.opacity):\(LanguageSettings.shared.selection.rawValue):\(Int(model.opacity * 100))"
         if signature != nextSignature {
             signature = nextSignature
             panel.contentView = NSHostingView(rootView:
                 ItemBuildOverlayView(
-                    build: build, ownedItemIDs: recognition.ownedItemIDs, opacity: model.opacity
+                    build: build, ownedItemIDs: recognition.ownedItemIDs, opacity: model.opacity,
+                    swapLines: GamePlanStore.shared.swapLines
                 )
                 .scaleEffect(scale, anchor: .topLeading)
-                .frame(width: 342 * scale, height: 132 * scale, alignment: .topLeading)
+                .frame(width: 342 * scale, height: (132 + 16 * CGFloat(GamePlanStore.shared.swapLines.count)) * scale, alignment: .topLeading)
             )
         }
-        let size = NSSize(width: 342 * scale, height: 132 * scale)
+        let size = NSSize(width: 342 * scale, height: (132 + 16 * CGFloat(GamePlanStore.shared.swapLines.count)) * scale)
         let bounds = game.placementBounds
         let frame = NSRect(x: bounds.minX + 18 * scale,
                            y: bounds.maxY - size.height - 82 * scale,
