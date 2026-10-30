@@ -20,12 +20,19 @@ extension AugmentStatsStore {
     }
 
     func comboNames(_ combo: PlayAramPlaystyle.Combo) -> [String] {
-        zip(combo.augmentIDs, combo.augmentNames).map { id, name in guide?.augments.first { $0.id == id }?.name ?? name }
+        let taken = Set(AugmentPickStore.shared.taken)
+        return zip(combo.augmentIDs, combo.augmentNames).map { id, name in
+            (taken.contains(id) ? "✓" : "") + (guide?.augments.first { $0.id == id }?.name ?? name)
+        }
     }
 
+    /// Prefer the combo with the most augments already taken, then the editor's tier.
     private func bestCombo(for augmentID: Int) -> PlayAramPlaystyle.Combo? {
-        playaram.playstyles.flatMap(\.combos).filter { $0.augmentIDs.contains(augmentID) }
-            .min { (Self.tierRank.firstIndex(of: $0.tier) ?? 9) < (Self.tierRank.firstIndex(of: $1.tier) ?? 9) }
+        let taken = Set(AugmentPickStore.shared.taken)
+        let rank = { (combo: PlayAramPlaystyle.Combo) in
+            (-combo.augmentIDs.filter(taken.contains).count, Self.tierRank.firstIndex(of: combo.tier) ?? 9)
+        }
+        return playaram.playstyles.flatMap(\.combos).filter { $0.augmentIDs.contains(augmentID) }.min { rank($0) < rank($1) }
     }
 
     private func globalTierSummary(for augmentID: Int) -> [String] {
@@ -49,16 +56,35 @@ extension AugmentStatsStore {
 /// The augment section of the guide: playaram playstyles above the rated augment list.
 struct AugmentGuideList: View {
     @ObservedObject private var stats = AugmentStatsStore.shared
+    @ObservedObject private var picks = AugmentPickStore.shared
     let augments: [AugmentRating]
 
     var body: some View {
-        if stats.guide?.mode == .mayhem, !stats.playaram.playstyles.isEmpty {
+        let mayhem = stats.guide?.mode == .mayhem
+        if mayhem, !picks.taken.isEmpty {
+            HStack(spacing: 6) {
+                Text(AugmentSourceStrings.text("已选海克斯")).font(.system(size: 11, weight: .semibold))
+                ForEach(picks.taken, id: \.self) { id in
+                    Button((stats.guide?.augments.first { $0.id == id }?.name ?? "#\(id)") + " ✕") { picks.toggle(id) }
+                        .buttonStyle(.bordered).controlSize(.small)
+                        .help(AugmentSourceStrings.text("移除"))
+                }
+            }
+        }
+        if mayhem, !stats.playaram.playstyles.isEmpty {
             PlayAramPlaystylesView(playstyles: stats.playaram.playstyles)
         }
         LazyVStack(spacing: 5) {
             ForEach(augments) { augment in
-                AugmentRow(augment: augment)
+                AugmentRow(augment: augment, pinned: mayhem && picks.taken.contains(augment.id))
                     .padding(8).background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 9))
+                    .contextMenu {
+                        if mayhem {
+                            Button(AugmentSourceStrings.text(picks.taken.contains(augment.id) ? "取消标记已选" : "标记为已选")) {
+                                picks.toggle(augment.id)
+                            }
+                        }
+                    }
             }
         }
     }

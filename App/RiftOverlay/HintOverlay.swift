@@ -110,6 +110,7 @@ private struct HintBadge: View {
             setStatus("等待游戏前台 · 提示已隐藏", model: model); return
         }
         gameFrame = game.frame
+        AugmentPickStore.shared.observe(cards: recognition.cardHints, guide: guide, level: recognition.detectedLevel, frame: game.frame)
         let layout = layouts.adjustment(for: .hints, frame: game.frame)
         let aspect = game.frame.width / game.frame.height
         calibration.currentAspect = aspect

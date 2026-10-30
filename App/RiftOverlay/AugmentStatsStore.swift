@@ -97,7 +97,8 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
         let pick = recommended.contains(augment.id) ? ["★ caoviethoang"] : []
         if let headline = headline(for: augment.id, guidePatch: guide.patch) {
-            return ([augment.tierLabel] + headline + pick).joined(separator: " · ")
+            let mark = verdict(for: augment.id, guide: guide).map { $0 == .best ? ["✅ " + AugmentSourceStrings.text("推荐选择")] : ["⚠"] } ?? []
+            return (mark + [augment.tierLabel] + headline + pick).joined(separator: " · ")
         }
         guard let record = snapshot.primary(for: augment.id) else {
             return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
