@@ -40,21 +40,52 @@ enum AramggKeychain {
     }
 }
 
+enum AugmentStatsResult {
+    case stats([Int: AugmentStatRecord])
+    case picks([AugmentReference])
+}
+
 /// Network and disk-cache access for augment stat providers; never runs on the main actor.
 enum AugmentStatsLoader {
     private static let aramggBase = "https://data.dtodo.cn/api/v1/en"
     private static let aramggVersionKey = "AugmentStats.aramgg.lastDataVersion"
-    private static let mayhemMetaCacheAge: TimeInterval = 6 * 3600
+    private static let htmlCacheAge: TimeInterval = 6 * 3600
 
     static func load(_ provider: AugmentStatsProvider, championID: Int, championKey: String, key: String,
-                     allowNetwork: Bool) async throws -> [Int: AugmentStatRecord] {
+                     allowNetwork: Bool) async throws -> AugmentStatsResult {
         switch provider {
-        case .aramgg: return try await aramgg(championID: championID, key: key, allowNetwork: allowNetwork)
-        case .mayhemmeta: return try await mayhemMeta(championID: championID, championKey: championKey)
+        case .aramgg: return .stats(try await aramgg(championID: championID, key: key, allowNetwork: allowNetwork))
+        case .mayhemmeta:
+            return .stats(try await cachedHTML("mayhemmeta/\(championKey).html", url: "https://mayhemmeta.com/champions/\(championKey)") {
+                try MayhemMetaParser.championAugments($0, championID: championID, championKey: championKey)
+            })
+        case .playaram:
+            return .stats(try await cachedHTML("playaram/\(championKey).html", url: "https://playaram.gg/tuong/\(championKey)") {
+                try PlayAramParser.championAugments($0, championID: championID, championKey: championKey)
+            })
+        case .caoviethoang:
+            return .picks(try await cachedHTML("caoviethoang/\(championKey).html",
+                                               url: "https://aram.caoviethoang.me/tuong/\(championKey)/") {
+                try CaoVietHoangParser.recommendedAugments($0)
+            })
         case .hexmayhem:
             let html = String(decoding: try await get(URL(string: "https://hexmayhem.com/augments")!), as: UTF8.self)
-            return HexMayhemRecords.records(from: try MayhemStatsParser.parse(html))
+            return .stats(HexMayhemRecords.records(from: try MayhemStatsParser.parse(html)))
         }
+    }
+
+    /// Parse a recent cached page when it still parses, else download, parse, then cache it.
+    private static func cachedHTML<T>(_ path: String, url: String, parse: (String) throws -> T) async throws -> T {
+        let file = cacheFile(path)
+        let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+        if let modified, Date().timeIntervalSince(modified) < htmlCacheAge,
+           let cached = try? String(contentsOf: file, encoding: .utf8), let result = try? parse(cached) {
+            return result
+        }
+        let data = try await get(URL(string: url)!)
+        let result = try parse(String(decoding: data, as: UTF8.self))
+        write(data, to: file)
+        return result
     }
 
     private static func aramgg(championID: Int, key: String, allowNetwork: Bool) async throws -> [Int: AugmentStatRecord] {
@@ -72,21 +103,6 @@ enum AugmentStatsLoader {
         guard allowNetwork else { throw URLError(.resourceUnavailable) }
         let data = try await get(URL(string: "\(aramggBase)/data/champion-augments/\(championID).json")!, key: key)
         let records = try AramggParser.championAugments(data, championID: championID)
-        write(data, to: file)
-        return records
-    }
-
-    private static func mayhemMeta(championID: Int, championKey: String) async throws -> [Int: AugmentStatRecord] {
-        let file = cacheFile("mayhemmeta/\(championKey).html")
-        let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-        if let modified, Date().timeIntervalSince(modified) < mayhemMetaCacheAge,
-           let cached = try? String(contentsOf: file, encoding: .utf8),
-           let records = try? MayhemMetaParser.championAugments(cached, championID: championID, championKey: championKey) {
-            return records
-        }
-        let data = try await get(URL(string: "https://mayhemmeta.com/champions/\(championKey)")!)
-        let records = try MayhemMetaParser.championAugments(String(decoding: data, as: UTF8.self),
-                                                            championID: championID, championKey: championKey)
         write(data, to: file)
         return records
     }

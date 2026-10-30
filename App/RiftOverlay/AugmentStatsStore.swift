@@ -3,23 +3,30 @@ import Foundation
 import RiftCore
 
 enum AugmentStatsProvider: String, CaseIterable, Identifiable {
-    case aramgg, mayhemmeta, hexmayhem
+    case aramgg, mayhemmeta, playaram, hexmayhem, caoviethoang
 
     var id: String { rawValue }
     var displayName: String {
         switch self {
         case .aramgg: return "aramgg"
         case .mayhemmeta: return "Mayhem:Meta"
+        case .playaram: return "playaram.gg"
         case .hexmayhem: return "HexMayhem"
+        case .caoviethoang: return "aram.caoviethoang.me"
         }
     }
     var isChampionSpecific: Bool { self != .hexmayhem }
+    /// Editorial picks carry no statistics and never compete with stat providers.
+    var isEditorial: Bool { self == .caoviethoang }
+    static var statProviders: [AugmentStatsProvider] { allCases.filter { !$0.isEditorial } }
     var needsKey: Bool { self == .aramgg }
     var website: URL {
         switch self {
         case .aramgg: return URL(string: "https://aramgg.com")!
         case .mayhemmeta: return URL(string: "https://mayhemmeta.com")!
+        case .playaram: return URL(string: "https://playaram.gg")!
         case .hexmayhem: return URL(string: "https://hexmayhem.com")!
+        case .caoviethoang: return URL(string: "https://aram.caoviethoang.me")!
         }
     }
     fileprivate var enabledKey: String { "AugmentStats.\(rawValue).enabled" }
@@ -31,6 +38,10 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     static let shared = AugmentStatsStore()
 
     @Published private(set) var snapshot = AugmentStatsSnapshot(championID: nil, order: [], providers: [:])
+    @Published private(set) var recommended: Set<Int> = []
+    private var picks: [AugmentReference] = [] {
+        didSet { resolvePicks() }
+    }
     @Published private(set) var statuses: [AugmentStatsProvider: String] = [:]
     @Published private(set) var hasSavedKey = !AramggKeychain.read().isEmpty
     @Published var apiKeyDraft = ""
@@ -73,9 +84,12 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
 
     /// Compose the augment badge from the primary provider, or nil to keep the upstream badge.
     func overlayText(for augment: AugmentRating, guide: GuideStore) -> String? {
-        guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide),
-              let record = snapshot.primary(for: augment.id) else { return nil }
-        return ([augment.tierLabel] + summary(record, guidePatch: guide.patch)).joined(separator: " · ")
+        guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
+        let pick = recommended.contains(augment.id) ? ["★VN"] : []
+        guard let record = snapshot.primary(for: augment.id) else {
+            return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
+        }
+        return ([augment.tierLabel] + summary(record, guidePatch: guide.patch) + pick).joined(separator: " · ")
     }
 
     /// Describe one record as compact parts: win rate, sample, pick rate, provider and scope.
@@ -88,7 +102,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         if let pickRate = record.pickRate { parts.append(AugmentSourceStrings.text("选用率 %.1f%%", pickRate)) }
         var source = AugmentStatsProvider(rawValue: record.providerID)?.displayName ?? record.providerID
         if record.championID == nil { source += " " + AugmentSourceStrings.text("全局") }
-        if let patch = record.patch, patch != guidePatch, guidePatch != "—" { source += " \(patch)" }
+        if let patch = record.patch, !AugmentPatch.same(patch, guidePatch), guidePatch != "—" { source += " \(patch)" }
         parts.append(source)
         return parts
     }
@@ -98,9 +112,8 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     }
 
     private func guideChanged() {
-        // Cards on screen mean augment selection; network waits for the next guide update.
-        guard let guide, guide.mode == .mayhem, guide.recognized.isEmpty,
-              let championID = Self.championID(in: guide) else { return }
+        resolvePicks()
+        guard let guide, guide.mode == .mayhem, let championID = Self.championID(in: guide) else { return }
         if target?.id != championID {
             target = (championID, guide.championKey)
             for provider in AugmentStatsProvider.allCases where provider.isChampionSpecific { drop(provider) }
@@ -109,8 +122,19 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         AugmentStatsProvider.allCases.forEach(refresh)
     }
 
+    /// Re-resolve editorial picks whenever the catalog gains English names.
+    private func resolvePicks() {
+        let catalog = guide?.augments ?? []
+        let resolved = Set(picks.compactMap { $0.resolve(in: catalog) })
+        if resolved != recommended { recommended = resolved }
+        if !picks.isEmpty {
+            statuses[.caoviethoang] = AugmentSourceStrings.text("已匹配 %d / %d 个推荐海克斯", resolved.count, picks.count)
+        }
+    }
+
     private func refresh(_ provider: AugmentStatsProvider) {
-        guard isEnabled(provider), let target else { return }
+        // Cards on screen mean augment selection; network waits for the next guide update.
+        guard isEnabled(provider), let target, guide?.recognized.isEmpty ?? true else { return }
         let championID = provider.isChampionSpecific ? target.id : nil
         if let championID, inFlight[provider] == championID { return }
         if championID == nil, inFlight[provider] != nil { return }
@@ -127,14 +151,19 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         let championKey = target.key
         requests[provider] = Task { [weak self] in
             do {
-                let records = try await AugmentStatsLoader.load(provider, championID: target.id, championKey: championKey,
-                                                                key: key, allowNetwork: allowNetwork)
+                let result = try await AugmentStatsLoader.load(provider, championID: target.id, championKey: championKey,
+                                                               key: key, allowNetwork: allowNetwork)
                 guard !Task.isCancelled, let self else { return }
                 self.inFlight[provider] = nil
                 self.loadedAt[provider] = (championID, Date())
-                self.store(records, for: provider)
-                self.statuses[provider] = AugmentSourceStrings.text("已加载 %d 个海克斯 · %@", records.count,
-                                                                    records.values.first?.patch ?? "—")
+                switch result {
+                case .stats(let records):
+                    self.store(records, for: provider)
+                    self.statuses[provider] = AugmentSourceStrings.text("已加载 %d 个海克斯 · %@", records.count,
+                                                                        records.values.first?.patch ?? "—")
+                case .picks(let references):
+                    self.picks = references
+                }
             } catch {
                 guard !Task.isCancelled, let self else { return }
                 self.inFlight[provider] = nil
@@ -149,27 +178,28 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     private func drop(_ provider: AugmentStatsProvider) {
         requests[provider]?.cancel()
         requests[provider] = nil; inFlight[provider] = nil; loadedAt[provider] = nil
-        store([:], for: provider)
+        if provider.isEditorial { picks = [] } else { store([:], for: provider) }
         statuses[provider] = nil
     }
 
     private func store(_ records: [Int: AugmentStatRecord], for provider: AugmentStatsProvider) {
         var providers = snapshot.providers
         providers[provider.rawValue] = records.isEmpty ? nil : records
-        snapshot = AugmentStatsSnapshot(championID: target?.id, order: AugmentStatsProvider.allCases.map(\.rawValue),
+        snapshot = AugmentStatsSnapshot(championID: target?.id, order: AugmentStatsProvider.statProviders.map(\.rawValue),
                                         providers: providers)
     }
 
     private func publish(championID: Int) {
-        snapshot = AugmentStatsSnapshot(championID: championID, order: AugmentStatsProvider.allCases.map(\.rawValue),
+        snapshot = AugmentStatsSnapshot(championID: championID, order: AugmentStatsProvider.statProviders.map(\.rawValue),
                                         providers: snapshot.providers)
     }
 
     private static func ttl(_ provider: AugmentStatsProvider) -> TimeInterval {
         switch provider {
         case .aramgg: return 3600
-        case .mayhemmeta: return 6 * 3600
+        case .mayhemmeta, .playaram: return 6 * 3600
         case .hexmayhem: return 1800
+        case .caoviethoang: return 12 * 3600
         }
     }
 
