@@ -22,7 +22,7 @@ import Foundation
         "海克斯数据来源": ("Augment data sources", "Nguồn dữ liệu lõi"),
         "英雄专属": ("champion", "theo tướng"),
         "全局": ("global", "toàn cục"),
-        "社区推荐": ("community pick", "gợi ý VN"),
+        "攻略推荐": ("guide pick", "được gợi ý"),
         "已匹配 %d / %d 个推荐海克斯": ("matched %d of %d picks", "khớp %d / %d lõi gợi ý"),
         "获取免费 API Key": ("Get a free API key", "Lấy API key miễn phí"),
         "无法保存 API Key": ("Couldn't save the API key", "Không lưu được API key"),

@@ -12,7 +12,7 @@ struct AugmentSourceSettings: View {
                     Toggle(isOn: Binding(get: { stats.isEnabled(provider) }, set: { stats.setEnabled(provider, $0) })) {
                         HStack(spacing: 6) {
                             Link(provider.displayName, destination: provider.website)
-                            Text(AugmentSourceStrings.text(provider.isEditorial ? "社区推荐" : provider.isChampionSpecific ? "英雄专属" : "全局"))
+                            Text(AugmentSourceStrings.text(provider.isEditorial ? "攻略推荐" : provider.isChampionSpecific ? "英雄专属" : "全局"))
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -53,7 +53,7 @@ struct AugmentSourceLines: View {
         let records = guide?.mode == .mayhem ? stats.snapshot.records(for: augment.id) : []
         let recommended = guide?.mode == .mayhem && stats.recommended.contains(augment.id)
         if recommended {
-            line("★ " + AugmentSourceStrings.text("社区推荐") + " · " + AugmentStatsProvider.caoviethoang.displayName)
+            line("★ " + AugmentSourceStrings.text("攻略推荐") + " · " + AugmentStatsProvider.caoviethoang.displayName)
         }
         if records.isEmpty {
             upstreamLine

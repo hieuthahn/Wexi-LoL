@@ -85,7 +85,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     /// Compose the augment badge from the primary provider, or nil to keep the upstream badge.
     func overlayText(for augment: AugmentRating, guide: GuideStore) -> String? {
         guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
-        let pick = recommended.contains(augment.id) ? ["★VN"] : []
+        let pick = recommended.contains(augment.id) ? ["★ caoviethoang"] : []
         guard let record = snapshot.primary(for: augment.id) else {
             return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
         }
