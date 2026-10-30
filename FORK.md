@@ -14,6 +14,13 @@ This fork adds remote ARAM Mayhem augment statistics from several providers to [
 - Picks from aram.caoviethoang.me appear as `★ caoviethoang`, separate from statistics.
 - Settings → Augment data sources toggles each provider and stores the aramgg API key in macOS Keychain.
 
+## Pick and build help
+
+- The app infers which augment you took from the pointer position when the card triple closes, and lets you fix it: right-click an augment in the guide to mark it, or remove it from the "Taken" strip.
+- Each offered card gets `✅ Pick` when it clearly leads (combo with a taken augment first, then at least 1.5 points of win rate) or `⚠` when it trails the best card by 3 points. Close calls get no mark. The app never clicks for you.
+- The item build overlay suggests at most two counter-item swaps from the enemy team's damage split and healing, using Data Dragon item data.
+- Settings → AI game plan runs your local `claude` (Haiku, low effort) or `codex` (`codex/gpt-6-luna`, low reasoning) once per matchup and again after each taken augment. It never runs while cards are on screen. A plan nudges card verdicts (`AI+2`), adds notes and may replace the item swaps. The app keeps only augment and item IDs it offered, so invented IDs never reach the UI. Prompts carry champion, augment and item names, never player names. In one Jax test, Haiku answered in about 13 s for about $0.004, and Luna answered in about 8 s but mistook an ally for an enemy.
+
 ## Providers
 
 Priority runs top to bottom. Without a pooled estimate, the badge uses the first champion-specific provider with data, then falls back to HexMayhem.
