@@ -25,7 +25,7 @@ import RiftCore
         task = Task { [weak self] in
             guard let self else { return }
             do {
-                var request = URLRequest(url: URL(string: "https://api.github.com/repos/Loeraw/Wexi-LoL/releases/latest")!)
+                var request = URLRequest(url: URL(string: "https://api.github.com/repos/hieuthahn/Wexi-LoL/releases/latest")!)
                 request.setValue("application/vnd.github+json", forHTTPHeaderField: "Accept")
                 request.setValue("WexiLoL/\(currentVersion)", forHTTPHeaderField: "User-Agent")
                 request.timeoutInterval = 8
