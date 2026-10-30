@@ -58,6 +58,9 @@ struct AugmentSourceLines: View {
         if records.isEmpty {
             upstreamLine
         } else {
+            if let pooled = stats.consensusSummary(for: augment.id, guidePatch: guide?.patch ?? "—") {
+                line(pooled.joined(separator: " · ")).fontWeight(.semibold)
+            }
             ForEach(records, id: \.providerID) { record in
                 line(stats.summary(record, guidePatch: guide?.patch ?? "—").joined(separator: " · "))
             }

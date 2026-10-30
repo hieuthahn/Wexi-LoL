@@ -5,14 +5,16 @@ This fork adds remote ARAM Mayhem augment statistics from several providers to [
 ## What the fork adds
 
 - Champion-specific augment win rate, pick rate and sample size from up to five providers, plus HexMayhem's global numbers.
-- The in-game augment badge shows one primary provider, its sample size and scope, for example `T1 · 胜率 59.6% · n4.6k · aramgg`. The patch appears only when it differs from the guide's patch.
-- The guide list shows one line per provider, so you can compare sources. The app never averages or merges providers.
+- The in-game augment badge pools every champion-specific provider on the guide's patch, for example `T1 · 胜率 57.1% · +2.3 · 选用率 8.0% · gộp 2 nguồn`. `+2.3` is the gap in percentage points from the champion's average.
+- Pooling compares each source's win rate with that source's own champion average, because sources differ by region and rank (Mayhem:Meta runs about 3 points above AramHex for Jax). It combines those gaps with DerSimonian-Laird random effects, so when sources disagree, AramHex's very large CN sample cannot outvote the others.
+- Pooling skips playaram.gg (no sample size), arammeta (top 3 only), HexMayhem (global), rows under 100 games, and providers on another patch. When nothing qualifies, the badge falls back to the first provider with data and labels its patch.
+- The guide list shows the pooled line first, then one line per provider.
 - Picks from aram.caoviethoang.me appear as `★ caoviethoang`, separate from statistics.
 - Settings → Augment data sources toggles each provider and stores the aramgg API key in macOS Keychain.
 
 ## Providers
 
-Priority runs top to bottom. The badge uses the first champion-specific provider with data, then falls back to HexMayhem.
+Priority runs top to bottom. Without a pooled estimate, the badge uses the first champion-specific provider with data, then falls back to HexMayhem.
 
 | Provider | Access | Per champion | Win rate | Sample size | Region | Terms | Default |
 | --- | --- | --- | --- | --- | --- | --- | --- |

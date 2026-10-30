@@ -91,10 +91,23 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     func overlayText(for augment: AugmentRating, guide: GuideStore) -> String? {
         guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
         let pick = recommended.contains(augment.id) ? ["★ caoviethoang"] : []
+        if let pooled = consensusSummary(for: augment.id, guidePatch: guide.patch) {
+            return ([augment.tierLabel] + pooled + pick).joined(separator: " · ")
+        }
         guard let record = snapshot.primary(for: augment.id) else {
             return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
         }
         return ([augment.tierLabel] + summary(record, guidePatch: guide.patch) + pick).joined(separator: " · ")
+    }
+
+    /// Describe the pooled estimate as win rate, delta from the champion average, pick rate and sources.
+    func consensusSummary(for augmentID: Int, guidePatch: String) -> [String]? {
+        guard let consensus = snapshot.consensus(for: augmentID, patch: guidePatch == "—" ? nil : guidePatch) else { return nil }
+        var parts = [AugmentSourceStrings.text("胜率 %.1f%%", consensus.winRate), String(format: "%+.1f", consensus.delta)]
+        if let pickRate = consensus.pickRate { parts.append(AugmentSourceStrings.text("选用率 %.1f%%", pickRate)) }
+        let names = consensus.providerIDs.compactMap { AugmentStatsProvider(rawValue: $0)?.displayName }
+        parts.append(names.count == 1 ? names[0] : AugmentSourceStrings.text("综合 %d 个来源", names.count))
+        return parts
     }
 
     /// Describe one record as compact parts: win rate, sample, pick rate, provider and scope.
