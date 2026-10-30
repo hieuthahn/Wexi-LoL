@@ -30,8 +30,9 @@ enum GamePlanCLI {
         case .off:
             throw GamePlanCLIError.notFound
         case .claude:
-            // Project-only settings keep the user's hooks and plugins out of a call that must stay fast.
-            let output = try await launch(executable, in: work, arguments: [
+            // Project-only settings keep the user's hooks and plugins out of a call that must stay fast,
+            // so the user settings' env block (gateway URL and token) is passed on by hand.
+            let output = try await launch(executable, in: work, environment: userClaudeEnvironment(), arguments: [
                 "-p", "--model", model, "--effort", "low", "--tools", "", "--setting-sources", "project",
                 "--no-session-persistence", "--output-format", "json", "--json-schema", GamePlan.schema, prompt
             ])
@@ -75,12 +76,22 @@ enum GamePlanCLI {
         return URL(fileURLWithPath: path)
     }
 
-    private static func launch(_ executable: URL, in directory: URL, arguments: [String]) async throws -> Data {
+    /// The string values of the `env` block in `~/.claude/settings.json`, or none when it is missing.
+    static func userClaudeEnvironment() -> [String: String] {
+        let file = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude/settings.json")
+        guard let data = try? Data(contentsOf: file),
+              let settings = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let env = settings["env"] as? [String: Any] else { return [:] }
+        return env.compactMapValues { $0 as? String }
+    }
+
+    private static func launch(_ executable: URL, in directory: URL, environment extra: [String: String] = [:],
+                               arguments: [String]) async throws -> Data {
         let process = Process()
         process.executableURL = executable
         process.arguments = arguments
         process.currentDirectoryURL = directory
-        var environment = ProcessInfo.processInfo.environment
+        var environment = ProcessInfo.processInfo.environment.merging(extra) { _, user in user }
         // Apps launched from Finder get a bare PATH; node-based CLIs need their own bin directory first.
         environment["PATH"] = [executable.deletingLastPathComponent().path, "/opt/homebrew/bin", "/usr/local/bin",
                                "/usr/bin", "/bin", "/usr/sbin", "/sbin"].joined(separator: ":")
