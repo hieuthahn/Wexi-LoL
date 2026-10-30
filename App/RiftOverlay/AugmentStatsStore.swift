@@ -49,6 +49,10 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     @Published private(set) var statuses: [AugmentStatsProvider: String] = [:]
     @Published private(set) var hasSavedKey = !AramggKeychain.read().isEmpty
     @Published var apiKeyDraft = ""
+    /// A provider's raw value to lead the badge, or "pooled" for the cross-provider estimate.
+    @Published var primarySource = UserDefaults.standard.string(forKey: "AugmentStats.primary") ?? AugmentStatsProvider.playaram.rawValue {
+        didSet { UserDefaults.standard.set(primarySource, forKey: "AugmentStats.primary") }
+    }
     @Published var keyStatus = ""
 
     private(set) weak var guide: GuideStore?
@@ -91,13 +95,22 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     func overlayText(for augment: AugmentRating, guide: GuideStore) -> String? {
         guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
         let pick = recommended.contains(augment.id) ? ["★ caoviethoang"] : []
-        if let pooled = consensusSummary(for: augment.id, guidePatch: guide.patch) {
-            return ([augment.tierLabel] + pooled + pick).joined(separator: " · ")
+        if let lead = leadSummary(for: augment.id, guidePatch: guide.patch) {
+            return ([augment.tierLabel] + lead.parts + pick).joined(separator: " · ")
         }
         guard let record = snapshot.primary(for: augment.id) else {
             return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
         }
         return ([augment.tierLabel] + summary(record, guidePatch: guide.patch) + pick).joined(separator: " · ")
+    }
+
+    /// The chosen primary provider's record when it has one, else the pooled estimate.
+    func leadSummary(for augmentID: Int, guidePatch: String) -> (providerID: String?, parts: [String])? {
+        if let provider = AugmentStatsProvider(rawValue: primarySource), isEnabled(provider),
+           let record = snapshot.providers[primarySource]?[augmentID], record.championID == snapshot.championID {
+            return (primarySource, summary(record, guidePatch: guidePatch))
+        }
+        return consensusSummary(for: augmentID, guidePatch: guidePatch).map { (nil, $0) }
     }
 
     /// Describe the pooled estimate as win rate, delta from the champion average, pick rate and sources.

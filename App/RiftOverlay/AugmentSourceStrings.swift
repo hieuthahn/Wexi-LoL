@@ -22,6 +22,8 @@ import Foundation
         "海克斯数据来源": ("Augment data sources", "Nguồn dữ liệu lõi"),
         "英雄专属": ("champion", "theo tướng"),
         "全局": ("global", "toàn cục"),
+        "主要来源": ("Primary source", "Nguồn chính"),
+        "综合多个来源": ("Pool all sources", "Gộp các nguồn"),
         "综合 %d 个来源": ("%d sources pooled", "gộp %d nguồn"),
         "攻略推荐": ("guide pick", "được gợi ý"),
         "已匹配 %d / %d 个推荐海克斯": ("matched %d of %d picks", "khớp %d / %d lõi gợi ý"),

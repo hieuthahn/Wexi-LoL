@@ -7,6 +7,13 @@ struct AugmentSourceSettings: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             Text(AugmentSourceStrings.text("海克斯数据来源")).font(.headline)
+            Picker(AugmentSourceStrings.text("主要来源"), selection: $stats.primarySource) {
+                Text(AugmentSourceStrings.text("综合多个来源")).tag("pooled")
+                ForEach(AugmentStatsProvider.statProviders.filter(\.isChampionSpecific)) { provider in
+                    Text(provider.displayName).tag(provider.rawValue)
+                }
+            }
+            .frame(maxWidth: 320)
             ForEach(AugmentStatsProvider.allCases) { provider in
                 VStack(alignment: .leading, spacing: 4) {
                     Toggle(isOn: Binding(get: { stats.isEnabled(provider) }, set: { stats.setEnabled(provider, $0) })) {
@@ -58,10 +65,13 @@ struct AugmentSourceLines: View {
         if records.isEmpty {
             upstreamLine
         } else {
-            if let pooled = stats.consensusSummary(for: augment.id, guidePatch: guide?.patch ?? "—") {
-                line(pooled.joined(separator: " · ")).fontWeight(.semibold)
+            let patch = guide?.patch ?? "—"
+            let lead = stats.leadSummary(for: augment.id, guidePatch: patch)
+            if let lead { line(lead.parts.joined(separator: " · ")).fontWeight(.semibold) }
+            if lead?.providerID != nil, let pooled = stats.consensusSummary(for: augment.id, guidePatch: patch) {
+                line(pooled.joined(separator: " · "))
             }
-            ForEach(records, id: \.providerID) { record in
+            ForEach(records.filter { $0.providerID != lead?.providerID }, id: \.providerID) { record in
                 line(stats.summary(record, guidePatch: guide?.patch ?? "—").joined(separator: " · "))
             }
         }
