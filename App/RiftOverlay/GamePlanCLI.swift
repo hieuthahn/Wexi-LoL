@@ -64,8 +64,11 @@ enum GamePlanCLI {
         let pipe = Pipe()
         shell.standardOutput = pipe; shell.standardError = FileHandle.nullDevice; shell.standardInput = FileHandle.nullDevice
         guard (try? shell.run()) != nil else { return nil }
-        shell.waitUntilExit()
+        let deadline = DispatchWorkItem { if shell.isRunning { shell.terminate() } }
+        DispatchQueue.global().asyncAfter(deadline: .now() + 10, execute: deadline)
         let text = String(decoding: pipe.fileHandleForReading.readDataToEndOfFile(), as: UTF8.self)
+        shell.waitUntilExit()
+        deadline.cancel()
         guard let path = text.split(separator: "\n").map(String.init).last(where: { $0.hasPrefix("/") }),
               FileManager.default.isExecutableFile(atPath: path) else { return nil }
         UserDefaults.standard.set(path, forKey: key)

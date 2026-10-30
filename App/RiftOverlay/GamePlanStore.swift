@@ -43,7 +43,11 @@ import RiftCore
 
     /// Call on every overlay refresh; work runs at most every `pollInterval` and never while cards are offered.
     func tick(guide: GuideStore, recognition: AutoRecognition) {
-        guard Date() >= nextPoll, !polling, guide.mode == .mayhem, recognition.detectedChampion == guide.championKey else { return }
+        guard guide.mode == .mayhem, recognition.detectedChampion == guide.championKey else {
+            if !swaps.isEmpty || plan != nil { swaps = []; plan = nil; lastPrompt = ""; matchup = "" }
+            return
+        }
+        guard Date() >= nextPoll, !polling, guide.recognized.isEmpty else { return }
         nextPoll = Date().addingTimeInterval(Self.pollInterval)
         polling = true
         let owned = recognition.ownedItemIDs
@@ -67,9 +71,12 @@ import RiftCore
                                                      items: items, dataDragonVersion: dataVersion)
         if nextSwaps != swaps { swaps = nextSwaps }
         guard engine != .off, !enemies.isEmpty, guide.recognized.isEmpty, planTask == nil,
-              let own = allies.first(where: { $0.riotId == riotID }) ?? allies.first else { return }
+              let ownIndex = allies.firstIndex(where: { riotID != nil && $0.riotId == riotID })
+                ?? allies.firstIndex(where: { Self.championKey($0) == guide.championKey }) else { return }
+        var mates = allies
+        let own = mates.remove(at: ownIndex)
         let request = GamePlanRequest(
-            champion: own.championName, allies: allies.filter { $0.riotId != own.riotId }.map(\.championName),
+            champion: own.championName, allies: mates.map(\.championName),
             enemies: enemies.map(\.championName),
             taken: AugmentPickStore.shared.taken.compactMap { id in guide.augments.first { $0.id == id }?.name },
             augments: promptAugments(guide), build: buildItems(guide, owned: owned), counters: counterItems(),
@@ -103,6 +110,12 @@ import RiftCore
                 self.status = Self.message(for: error)
             }
         }
+    }
+
+    private static func championKey(_ player: LiveRosterPlayer) -> String? {
+        guard let raw = player.rawChampionName?.lowercased(), raw.hasPrefix("game_character_displayname_") else { return nil }
+        let key = String(raw.dropFirst("game_character_displayname_".count))
+        return key == "monkeyking" ? "wukong" : key
     }
 
     private func promptAugments(_ guide: GuideStore) -> [GamePlanRequest.Augment] {
