@@ -128,18 +128,7 @@ struct AugmentRow: View {
                 .accessibilityLabel(L10n.text("%@，评级 %@", L10n.text(augment.rarityLabel), augment.tierLabel))
             VStack(alignment: .leading, spacing: 3) {
                 Text(augment.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                if let winRate = augment.winRate, let pickRate = augment.pickRate {
-                    if let games = augment.games {
-                        Text(L10n.text("胜率 %.1f%% · 选用率 %.1f%% · %d 场", winRate, pickRate, games))
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
-                    } else {
-                        Text(L10n.text("胜率 %.1f%% · 选用率 %.1f%%", winRate, pickRate))
-                            .font(.system(size: 9)).foregroundStyle(.secondary)
-                    }
-                } else if let pickRate = augment.pickRate {
-                    Text(L10n.text("选用率 %.1f%%", pickRate))
-                        .font(.system(size: 9)).foregroundStyle(.secondary)
-                }
+                AugmentSourceLines(augment: augment)
             }
             Spacer()
             if pinned { Image(systemName: "pin.fill").foregroundStyle(guideMint) }
@@ -536,6 +525,7 @@ struct GuideControlView: View {
                     Text(lobbyScout.status).font(.system(size: 11)).foregroundStyle(.secondary)
                 }
 
+                AugmentSourceSettings()
                 settingsSection(L10n.text("个人赛后复盘")) {
                     Text(L10n.text(postGame.status)).font(.caption).foregroundStyle(.secondary)
                     HStack { Text(L10n.text("最近十局趋势")); Spacer(); Text(postGame.recentAverage).foregroundStyle(guideMint) }

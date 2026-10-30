@@ -104,6 +104,7 @@ private struct HintBadge: View {
     func update(model: OverlayModel, guide: GuideStore, recognition: AutoRecognition, calibration: SkillCalibration,
                 layouts: OverlayLayoutStore) {
         self.calibration = calibration
+        AugmentStatsStore.shared.attach(guide)
         guard let game = recognition.capturedGameSurface ?? GameSurface.current(), game.foreground else {
             hideAll(); gameFrame = nil; retainedCards = []; cardsLastSeenAt = .distantPast
             setStatus("等待游戏前台 · 提示已隐藏", model: model); return
@@ -145,8 +146,9 @@ private struct HintBadge: View {
                     guard let augment = guide.augments.first(where: { $0.id == card.id }) else { continue }
                     let id = "card-\(card.id)"
                     let hasRates = augment.pickRate != nil || augment.winRate != nil
-                    show(id: id, text: augmentHintText(augment), anchor: card.anchor, offset: 0,
-                         size: NSSize(width: hasRates ? 248 : 42, height: 28),
+                    let providerText = AugmentStatsStore.shared.overlayText(for: augment, guide: guide)
+                    show(id: id, text: providerText ?? augmentHintText(augment), anchor: card.anchor, offset: 0,
+                         size: NSSize(width: providerText != nil ? 330 : hasRates ? 248 : 42, height: 28),
                          game: game, calibration: false, opacity: model.opacity * layout.opacity,
                          scalePreference: model.overlayScale * layout.scale, layout: layout)
                     shown.insert(id)
