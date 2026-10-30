@@ -55,16 +55,21 @@ enum AugmentStatsLoader {
                      allowNetwork: Bool) async throws -> AugmentStatsResult {
         switch provider {
         case .aramgg: return .stats(try await aramgg(championID: championID, key: key, allowNetwork: allowNetwork))
+        case .aramhex: return .stats(try await aramhex(championID: championID))
+        case .arammeta:
+            return .stats(try await cachedPage("arammeta/tier-list.json", url: "https://arammeta.com/api/tier-list.json") {
+                try AramMetaParser.championAugments(Data($0.utf8), championID: championID)
+            })
         case .mayhemmeta:
-            return .stats(try await cachedHTML("mayhemmeta/\(championKey).html", url: "https://mayhemmeta.com/champions/\(championKey)") {
+            return .stats(try await cachedPage("mayhemmeta/\(championKey).html", url: "https://mayhemmeta.com/champions/\(championKey)") {
                 try MayhemMetaParser.championAugments($0, championID: championID, championKey: championKey)
             })
         case .playaram:
-            return .stats(try await cachedHTML("playaram/\(championKey).html", url: "https://playaram.gg/tuong/\(championKey)") {
+            return .stats(try await cachedPage("playaram/\(championKey).html", url: "https://playaram.gg/tuong/\(championKey)") {
                 try PlayAramParser.championAugments($0, championID: championID, championKey: championKey)
             })
         case .caoviethoang:
-            return .picks(try await cachedHTML("caoviethoang/\(championKey).html",
+            return .picks(try await cachedPage("caoviethoang/\(championKey).html",
                                                url: "https://aram.caoviethoang.me/tuong/\(championKey)/") {
                 try CaoVietHoangParser.recommendedAugments($0)
             })
@@ -74,18 +79,48 @@ enum AugmentStatsLoader {
         }
     }
 
-    /// Parse a recent cached page when it still parses, else download, parse, then cache it.
-    private static func cachedHTML<T>(_ path: String, url: String, parse: (String) throws -> T) async throws -> T {
+    /// Use a recent cached page, else download it; when offline, fall back to any cached copy that still parses.
+    private static func cachedPage<T>(_ path: String, url: String, parse: (String) throws -> T) async throws -> T {
         let file = cacheFile(path)
         let modified = (try? file.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
         if let modified, Date().timeIntervalSince(modified) < htmlCacheAge,
            let cached = try? String(contentsOf: file, encoding: .utf8), let result = try? parse(cached) {
             return result
         }
-        let data = try await get(URL(string: url)!)
-        let result = try parse(String(decoding: data, as: UTF8.self))
-        write(data, to: file)
-        return result
+        do {
+            let data = try await get(URL(string: url)!)
+            let result = try parse(String(decoding: data, as: UTF8.self))
+            write(data, to: file)
+            return result
+        } catch {
+            guard let cached = try? String(contentsOf: file, encoding: .utf8), let result = try? parse(cached) else { throw error }
+            return result
+        }
+    }
+
+    /// Follow AramHex's `latest.json` pointer, keep one dataset per release, and fall back to the last complete one.
+    private static func aramhex(championID: Int) async throws -> [Int: AugmentStatRecord] {
+        let pointer = cacheFile("aramhex/latest.json")
+        do {
+            let latest = try await get(URL(string: "https://raw.githubusercontent.com/czgreat/aramhex-data/main/latest.json")!)
+            let release = try AramHexParser.release(latest)
+            let file = cacheFile("aramhex/\(release.seq)/hero_augments.json")
+            if let cached = try? Data(contentsOf: file),
+               let records = try? AramHexParser.championAugments(cached, championID: championID, release: release) {
+                write(latest, to: pointer)
+                return records
+            }
+            let tag = "https://raw.githubusercontent.com/czgreat/aramhex-data/data-v\(release.seq)"
+            let data = try await get(URL(string: "\(tag)/\(release.path)/hero_augments.json")!)
+            let records = try AramHexParser.championAugments(data, championID: championID, release: release)
+            write(data, to: file)
+            write(latest, to: pointer)
+            return records
+        } catch {
+            guard let cached = try? Data(contentsOf: pointer), let release = try? AramHexParser.release(cached),
+                  let data = try? Data(contentsOf: cacheFile("aramhex/\(release.seq)/hero_augments.json")) else { throw error }
+            return try AramHexParser.championAugments(data, championID: championID, release: release)
+        }
     }
 
     private static func aramgg(championID: Int, key: String, allowNetwork: Bool) async throws -> [Int: AugmentStatRecord] {

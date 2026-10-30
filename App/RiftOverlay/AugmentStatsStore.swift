@@ -3,12 +3,14 @@ import Foundation
 import RiftCore
 
 enum AugmentStatsProvider: String, CaseIterable, Identifiable {
-    case aramgg, mayhemmeta, playaram, hexmayhem, caoviethoang
+    case aramgg, aramhex, mayhemmeta, playaram, arammeta, hexmayhem, caoviethoang
 
     var id: String { rawValue }
     var displayName: String {
         switch self {
         case .aramgg: return "aramgg"
+        case .aramhex: return "AramHex"
+        case .arammeta: return "arammeta"
         case .mayhemmeta: return "Mayhem:Meta"
         case .playaram: return "playaram.gg"
         case .hexmayhem: return "HexMayhem"
@@ -23,6 +25,8 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     var website: URL {
         switch self {
         case .aramgg: return URL(string: "https://aramgg.com")!
+        case .aramhex: return URL(string: "https://github.com/czgreat/aramhex-data")!
+        case .arammeta: return URL(string: "https://arammeta.com")!
         case .mayhemmeta: return URL(string: "https://mayhemmeta.com")!
         case .playaram: return URL(string: "https://playaram.gg")!
         case .hexmayhem: return URL(string: "https://hexmayhem.com")!
@@ -30,7 +34,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         }
     }
     fileprivate var enabledKey: String { "AugmentStats.\(rawValue).enabled" }
-    fileprivate var enabledByDefault: Bool { !needsKey }
+    fileprivate var enabledByDefault: Bool { !needsKey && self != .arammeta }
 }
 
 /// Champion-specific and global augment stats from remote providers, fetched only when the guide's champion loads.
@@ -197,7 +201,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     private static func ttl(_ provider: AugmentStatsProvider) -> TimeInterval {
         switch provider {
         case .aramgg: return 3600
-        case .mayhemmeta, .playaram: return 6 * 3600
+        case .aramhex, .mayhemmeta, .playaram, .arammeta: return 6 * 3600
         case .hexmayhem: return 1800
         case .caoviethoang: return 12 * 3600
         }
