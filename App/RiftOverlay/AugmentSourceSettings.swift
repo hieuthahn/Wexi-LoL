@@ -62,12 +62,14 @@ struct AugmentSourceLines: View {
         if recommended {
             line("★ " + AugmentSourceStrings.text("攻略推荐") + " · " + AugmentStatsProvider.caoviethoang.displayName)
         }
-        if records.isEmpty {
+        let patch = guide?.patch ?? "—"
+        let headline = guide?.mode == .mayhem ? stats.headline(for: augment.id, guidePatch: patch) : nil
+        if let combo = stats.comboText(for: augment.id) { line(combo) }
+        if records.isEmpty && headline == nil {
             upstreamLine
         } else {
-            let patch = guide?.patch ?? "—"
             let lead = stats.leadSummary(for: augment.id, guidePatch: patch)
-            if let lead { line(lead.parts.joined(separator: " · ")).fontWeight(.semibold) }
+            if let headline { line(headline.joined(separator: " · ")).fontWeight(.semibold) }
             if lead?.providerID != nil, let pooled = stats.consensusSummary(for: augment.id, guidePatch: patch) {
                 line(pooled.joined(separator: " · "))
             }

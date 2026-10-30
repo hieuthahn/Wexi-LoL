@@ -43,6 +43,7 @@ enum AramggKeychain {
 enum AugmentStatsResult {
     case stats([Int: AugmentStatRecord])
     case picks([AugmentReference])
+    case playaram([Int: AugmentStatRecord], PlayAramGuide)
 }
 
 /// Network and disk-cache access for augment stat providers; never runs on the main actor.
@@ -65,9 +66,21 @@ enum AugmentStatsLoader {
                 try MayhemMetaParser.championAugments($0, championID: championID, championKey: championKey)
             })
         case .playaram:
-            return .stats(try await cachedPage("playaram/\(championKey).html", url: "https://playaram.gg/tuong/\(championKey)") {
-                try PlayAramParser.championAugments($0, championID: championID, championKey: championKey)
-            })
+            // Start all three pages together so none begins after augment cards appear.
+            async let tiers = try? cachedPage("playaram/tier-list.html", url: "https://playaram.gg/loi-aram-hon-loan") {
+                (try PlayAramParser.tierList($0), PlayAramParser.pagePatch($0))
+            }
+            async let changes = try? cachedPage("playaram/patch-changes.html", url: "https://playaram.gg/thay-doi-phien-ban") {
+                (try PlayAramParser.patchChanges($0), PlayAramParser.pagePatch($0))
+            }
+            let (records, playstyles) = try await cachedPage("playaram/\(championKey).html",
+                                                             url: "https://playaram.gg/tuong/\(championKey)") {
+                (try PlayAramParser.championAugments($0, championID: championID, championKey: championKey),
+                 PlayAramParser.playstyles($0))
+            }
+            let (tierList, changeList) = await (tiers, changes)
+            return .playaram(records, PlayAramGuide(playstyles: playstyles, tiers: tierList?.0 ?? [:], changes: changeList?.0 ?? [],
+                                                    tiersPatch: tierList?.1, changesPatch: changeList?.1))
         case .caoviethoang:
             return .picks(try await cachedPage("caoviethoang/\(championKey).html",
                                                url: "https://aram.caoviethoang.me/tuong/\(championKey)/") {

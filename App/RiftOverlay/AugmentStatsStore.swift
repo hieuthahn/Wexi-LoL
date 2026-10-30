@@ -43,6 +43,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
 
     @Published private(set) var snapshot = AugmentStatsSnapshot(championID: nil, order: [], providers: [:])
     @Published private(set) var recommended: Set<Int> = []
+    @Published private(set) var playaram = PlayAramGuide()
     private var picks: [AugmentReference] = [] {
         didSet { resolvePicks() }
     }
@@ -95,8 +96,8 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     func overlayText(for augment: AugmentRating, guide: GuideStore) -> String? {
         guard guide.mode == .mayhem, snapshot.championID == Self.championID(in: guide) else { return nil }
         let pick = recommended.contains(augment.id) ? ["★ caoviethoang"] : []
-        if let lead = leadSummary(for: augment.id, guidePatch: guide.patch) {
-            return ([augment.tierLabel] + lead.parts + pick).joined(separator: " · ")
+        if let headline = headline(for: augment.id, guidePatch: guide.patch) {
+            return ([augment.tierLabel] + headline + pick).joined(separator: " · ")
         }
         guard let record = snapshot.primary(for: augment.id) else {
             return pick.isEmpty ? nil : ([augment.tierLabel] + pick).joined(separator: " · ")
@@ -201,6 +202,11 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
                                                                         records.values.first?.patch ?? "—")
                 case .picks(let references):
                     self.picks = references
+                case .playaram(let records, let guide):
+                    self.store(records, for: provider)
+                    self.playaram = guide
+                    self.statuses[provider] = AugmentSourceStrings.text("已加载 %d 个海克斯 · %@", records.count,
+                                                                        records.values.first?.patch ?? "—")
                 }
             } catch {
                 guard !Task.isCancelled, let self else { return }
@@ -217,6 +223,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         requests[provider]?.cancel()
         requests[provider] = nil; inFlight[provider] = nil; loadedAt[provider] = nil
         if provider.isEditorial { picks = [] } else { store([:], for: provider) }
+        if provider == .playaram { playaram = PlayAramGuide() }
         statuses[provider] = nil
     }
 

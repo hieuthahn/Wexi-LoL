@@ -72,6 +72,7 @@ final class AugmentStatsPlayAramTests: XCTestCase {
         let styles = PlayAramParser.playstyles(try String(contentsOfFile: champion, encoding: .utf8))
         XCTAssertFalse(styles.isEmpty)
         XCTAssertTrue(styles.allSatisfy { !$0.combos.isEmpty && !$0.title.isEmpty })
+        XCTAssertNotNil(PlayAramParser.pagePatch(try String(contentsOfFile: changes, encoding: .utf8)))
         XCTAssertGreaterThan(try PlayAramParser.tierList(String(contentsOfFile: tiers, encoding: .utf8)).count, 100)
         let moves = try PlayAramParser.patchChanges(String(contentsOfFile: changes, encoding: .utf8))
         XCTAssertTrue(moves.contains { $0.championKey != nil } && moves.contains { $0.championKey == nil })

@@ -10,6 +10,7 @@ This fork adds remote ARAM Mayhem augment statistics from several providers to [
 - Pooling compares each source's win rate with that source's own champion average, because sources differ by region and rank (Mayhem:Meta runs about 3 points above AramHex for Jax). It combines those gaps with DerSimonian-Laird random effects, so when sources disagree, AramHex's very large CN sample cannot outvote the others.
 - Pooling skips playaram.gg (no sample size), arammeta (top 3 only), HexMayhem (global), rows under 100 games, and providers on another patch. When nothing qualifies, the badge falls back to the first provider with data and labels its patch.
 - The guide list shows the leading line in bold, then the pooled line, then one line per provider.
+- playaram.gg also feeds three guidance pieces. Editorial combos appear as a second badge under each card (`⚡S Trái Tim Sắt Đá + Thức Tỉnh Tối Thượng`) and as a collapsible "Playstyles & augment combos" section with items and tips. Augments missing from the champion page fall back to playaram's global S+ to D tier. A `▲3.5` or `▼2.1` marks the biggest win-rate moves since the last patch, champion-specific first. Combo tiers are editor ratings, not win rates. The champion page, `/loi-aram-hon-loan` and `/thay-doi-phien-ban` download together and stay cached for 6 hours. Tiers and moves from another patch stay hidden.
 - Picks from aram.caoviethoang.me appear as `★ caoviethoang`, separate from statistics.
 - Settings → Augment data sources toggles each provider and stores the aramgg API key in macOS Keychain.
 

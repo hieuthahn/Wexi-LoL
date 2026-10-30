@@ -49,13 +49,22 @@ public struct PlayAramGuide: Equatable, Sendable {
     public var playstyles: [PlayAramPlaystyle]
     public var tiers: [Int: PlayAramTier]
     public var changes: [PlayAramPatchChange]
+    public var tiersPatch: String?
+    public var changesPatch: String?
 
-    public init(playstyles: [PlayAramPlaystyle] = [], tiers: [Int: PlayAramTier] = [:], changes: [PlayAramPatchChange] = []) {
+    public init(playstyles: [PlayAramPlaystyle] = [], tiers: [Int: PlayAramTier] = [:], changes: [PlayAramPatchChange] = [],
+                tiersPatch: String? = nil, changesPatch: String? = nil) {
         self.playstyles = playstyles; self.tiers = tiers; self.changes = changes
+        self.tiersPatch = tiersPatch; self.changesPatch = changesPatch
     }
 }
 
 extension PlayAramParser {
+    /// The "Phiên bản" label every playaram.gg data page carries.
+    public static func pagePatch(_ html: String) -> String? {
+        HTMLScan.first(#"<dt>Phiên bản</dt><dd>(\d+\.\d+)</dd>"#, in: html)
+    }
+
     /// Parse the "Lối chơi & combo lõi" tabs of a champion page.
     public static func playstyles(_ html: String) -> [PlayAramPlaystyle] {
         let starts = HTMLScan.ranges(of: #"id="playstyle-panel-\d+""#, in: html)

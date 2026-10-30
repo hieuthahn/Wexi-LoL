@@ -152,6 +152,12 @@ private struct HintBadge: View {
                          game: game, calibration: false, opacity: model.opacity * layout.opacity,
                          scalePreference: model.overlayScale * layout.scale, layout: layout)
                     shown.insert(id)
+                    if let combo = AugmentStatsStore.shared.comboText(for: augment.id) {
+                        show(id: id + "-combo", text: combo, anchor: card.anchor, offset: -30, size: NSSize(width: 330, height: 28),
+                             game: game, calibration: false, opacity: model.opacity * layout.opacity,
+                             scalePreference: model.overlayScale * layout.scale, layout: layout)
+                        shown.insert(id + "-combo")
+                    }
                 }
             } else if let skill = recognition.recommendedSkill {
                 let anchor = calibration.anchor(for: skill, aspect: aspect) ?? (freshFrame ? recognition.skillAnchors[skill] : nil)

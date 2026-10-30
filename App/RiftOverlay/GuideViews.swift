@@ -283,12 +283,7 @@ struct GuideControlView: View {
                                   systemImage: "chart.bar.xaxis")
                                 .font(.system(size: 10)).foregroundStyle(.secondary)
                         }
-                        LazyVStack(spacing: 5) {
-                            ForEach(guide.matchingAugments) { augment in
-                                AugmentRow(augment: augment)
-                                    .padding(8).background(.white.opacity(0.025), in: RoundedRectangle(cornerRadius: 9))
-                            }
-                        }
+                        AugmentGuideList(augments: guide.matchingAugments)
                     }
                     Divider()
                     HStack {
