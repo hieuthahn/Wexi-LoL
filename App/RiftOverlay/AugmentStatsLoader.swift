@@ -124,22 +124,34 @@ enum AugmentStatsLoader {
     }
 
     private static func aramgg(championID: Int, key: String, allowNetwork: Bool) async throws -> [Int: AugmentStatRecord] {
+        let lastVersion = UserDefaults.standard.string(forKey: aramggVersionKey)
         let version: String
-        do {
-            version = try AramggParser.dataVersion(fromConfig: try await get(URL(string: "\(aramggBase)/config.json")!))
-            UserDefaults.standard.set(version, forKey: aramggVersionKey)
-        } catch {
-            guard let lastVersion = UserDefaults.standard.string(forKey: aramggVersionKey) else { throw error }
+        if !allowNetwork, let lastVersion {
             version = lastVersion
+        } else {
+            do {
+                version = try AramggParser.dataVersion(fromConfig: try await get(URL(string: "\(aramggBase)/config.json")!))
+                UserDefaults.standard.set(version, forKey: aramggVersionKey)
+            } catch {
+                guard let lastVersion else { throw error }
+                version = lastVersion
+            }
         }
-        let file = cacheFile("aramgg/\(version.filter { $0.isNumber || $0 == "." })/\(championID).json")
-        if let cached = try? Data(contentsOf: file),
-           let records = try? AramggParser.championAugments(cached, championID: championID) { return records }
+        let file = aramggFile(version, championID)
+        if let records = try? aramggCache(version, championID) { return records }
         guard allowNetwork else { throw URLError(.resourceUnavailable) }
         let data = try await get(URL(string: "\(aramggBase)/data/champion-augments/\(championID).json")!, key: key)
         let records = try AramggParser.championAugments(data, championID: championID)
         write(data, to: file)
         return records
+    }
+
+    private static func aramggFile(_ version: String, _ championID: Int) -> URL {
+        cacheFile("aramgg/\(version.filter { $0.isNumber || $0 == "." })/\(championID).json")
+    }
+
+    private static func aramggCache(_ version: String, _ championID: Int) throws -> [Int: AugmentStatRecord] {
+        try AramggParser.championAugments(try Data(contentsOf: aramggFile(version, championID)), championID: championID)
     }
 
     private static func cacheFile(_ path: String) -> URL {

@@ -58,6 +58,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
     private var loadedAt: [AugmentStatsProvider: (championID: Int?, date: Date)] = [:]
     private var target: (id: Int, key: String)?
     private var quotaBlockedUntil: Date?
+    private var nextStaleCheck = Date.distantPast
 
     func isEnabled(_ provider: AugmentStatsProvider) -> Bool {
         UserDefaults.standard.object(forKey: provider.enabledKey) as? Bool ?? provider.enabledByDefault
@@ -71,7 +72,7 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
 
     /// Observe the guide once; call from any frequently updated owner of it.
     func attach(_ guide: GuideStore) {
-        guard self.guide !== guide else { return }
+        guard self.guide !== guide else { refreshIfStale(); return }
         self.guide = guide
         guideObservation = guide.$augments.receive(on: RunLoop.main).sink { [weak self] _ in self?.guideChanged() }
     }
@@ -109,6 +110,13 @@ enum AugmentStatsProvider: String, CaseIterable, Identifiable {
         if let patch = record.patch, !AugmentPatch.same(patch, guidePatch), guidePatch != "—" { source += " \(patch)" }
         parts.append(source)
         return parts
+    }
+
+    /// Re-check provider TTLs at most every five minutes while the same champion stays loaded.
+    private func refreshIfStale() {
+        guard Date() >= nextStaleCheck, guide?.mode == .mayhem else { return }
+        nextStaleCheck = Date().addingTimeInterval(300)
+        AugmentStatsProvider.allCases.forEach(refresh)
     }
 
     private static func championID(in guide: GuideStore) -> Int? {
