@@ -137,7 +137,7 @@ public struct SituationalEnemyProfile: Equatable, Sendable {
     public let healingThreatCount: Int
 }
 
-public enum SituationalItemReason: String, Equatable, Sendable {
+public enum SituationalItemReason: String, CaseIterable, Equatable, Sendable {
     case armor
     case magicResist
     case antiHeal
@@ -252,6 +252,17 @@ public enum SituationalItems {
         }
         return suggestions(for: build, ownedItemIDs: ownedItemIDs, profile: profile,
                            items: items, dataDragonVersion: dataDragonVersion)
+    }
+
+    /// Every counter item the swap rules may suggest and what it counters, for callers that let a model choose.
+    public static var counterCandidates: [Int: [SituationalItemReason]] {
+        var result: [Int: [SituationalItemReason]] = [:]
+        for reason in SituationalItemReason.allCases {
+            for id in BuildClass.allCases.flatMap({ counterIDs(for: reason, buildClass: $0) }) where !(result[id] ?? []).contains(reason) {
+                result[id, default: []].append(reason)
+            }
+        }
+        return result
     }
 
     private enum BuildClass: CaseIterable {

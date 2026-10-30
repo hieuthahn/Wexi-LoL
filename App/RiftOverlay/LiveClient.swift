@@ -93,6 +93,12 @@ final class LiveClient {
         }
         return (stats, data.events, teams, ChampionRecognition.team(active: activePlayer, roster: players), activePlayer.level)
     }
+    func roster() async throws -> (players: [LiveRosterPlayer], team: String?, riotID: String?) {
+        async let active: ActivePlayer = get(URL(string: "https://127.0.0.1:2999/liveclientdata/activeplayer")!)
+        async let roster: [LiveRosterPlayer] = get(URL(string: "https://127.0.0.1:2999/liveclientdata/playerlist")!)
+        let (player, players) = try await (active, roster)
+        return (players, ChampionRecognition.team(active: player, roster: players), player.riotId)
+    }
     func lobbyState() async throws -> (game: GameStats, players: [LiveRosterPlayer]) {
         async let game: GameStats = get(URL(string: "https://127.0.0.1:2999/liveclientdata/gamestats")!)
         async let roster: [LiveRosterPlayer] = get(URL(string: "https://127.0.0.1:2999/liveclientdata/playerlist")!)
