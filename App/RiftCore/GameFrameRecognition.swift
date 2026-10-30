@@ -147,6 +147,11 @@ public enum GameFrameRecognition {
                              fast: Bool = false) throws -> [RecognizedLine] {
         let request = VNRecognizeTextRequest()
         request.recognitionLevel = fast ? .fast : .accurate
+        // Vision's fast level reads Latin scripts only; a CJK or Vietnamese client would get no titles.
+        if fast, let primary = recognitionLanguages.first,
+           !((try? request.supportedRecognitionLanguages()) ?? []).contains(primary) {
+            request.recognitionLevel = .accurate
+        }
         applyLanguages(recognitionLanguages, to: request)
         request.usesLanguageCorrection = false
         request.customWords = catalog.flatMap { [$0.name, $0.englishName ?? ""] + $0.alternateNames }.filter { !$0.isEmpty }
